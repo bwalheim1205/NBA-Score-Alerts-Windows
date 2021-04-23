@@ -2,6 +2,8 @@
 import requests
 import json
 
+import os 
+
 #Handles window creation
 from tkinter import *
 from win32api import GetSystemMetrics
@@ -81,13 +83,13 @@ class ScoreNotification:
 
 
         #Loads Team Images
-        self.imageFile1 = Image.open(self.imagePath1).resize((80, 80), Image.ANTIALIAS)
+        self.imageFile1 = Image.open(self.imagePath1).resize((75, 75), Image.ANTIALIAS)
         self.image1 = ImageTk.PhotoImage(self.imageFile1)
         self.imageLabel1 = Label(image=self.image1)
         self.imageLabel1.image = self.image1
         self.imageLabel1.place(x=10, y=25)
 
-        self.imageFile2 = Image.open(self.imagePath2).resize((80, 80), Image.ANTIALIAS)
+        self.imageFile2 = Image.open(self.imagePath2).resize((75, 75), Image.ANTIALIAS)
         self.image2 = ImageTk.PhotoImage(self.imageFile2)
         self.imageLabel2 = Label(image=self.image2)
         self.imageLabel2.image = self.image2
@@ -108,11 +110,6 @@ class ScoreNotification:
         #Configures message
         self.messageLabel = Label(self.window, text = self.message, font=("Verdana", 9))
         self.messageLabel.pack()
-
-        
-
-
-        
 
         #Creates window
         self.window.mainloop()
@@ -151,6 +148,7 @@ def getCurrentNBAGames():
 
         if (homeTeamScore != "" and visitTeamScore != ""):
             print("Q" + str(gamePeriod) + " " + timeInPeriod + ": " + visitTeamCode + "(" + visitTeamScore + ")"  + " @ " +  homeTeamCode + "(" + homeTeamScore + ")")
+            timeString = "Q" + str(gamePeriod) + " " + timeInPeriod 
             if (isCloseGame(int(visitTeamScore), int(homeTeamScore), timeInPeriod, gamePeriod)):
                 
                 notification = ScoreNotification(
@@ -158,15 +156,19 @@ def getCurrentNBAGames():
                     message= visitTeamCode + " vs " + homeTeamCode, 
                     score1 = homeTeamScore,
                     score2 = visitTeamScore,
-                    time = timeInPeriod,
+                    time = timeString,
+                    image1=getPathToImages(visitTeamCode),
+                    image2=getPathToImages(homeTeamCode),
                     link=getStreamLink(homeTeamCode, visitTeamCode))
                 notification.notify(5)
 
 
 def getPathToImages(teamTriCode):
-    pathToImageDirectory = ""
+    
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    pathToImageDirectory = dir_path + "/TeamLogos/"
     teamName = tricodeToName[teamTriCode].lower().replace(" ","-")
-    return pathToImageDirectory + teamName
+    return pathToImageDirectory + teamName + ".png"
 
 def getNBADayString():
 
@@ -209,14 +211,15 @@ while True:
     time.sleep(15)
 '''
 
+
 notification = ScoreNotification(
     title="CLOSE GAME ALERT", 
-    message= "Min" + " vs " + "Heat", 
+    message= "LAL" + " vs " + "PHI", 
     score1 = str(0),
     score2 = str(0),
     time = "1:30",
-    image1="TeamLogos/los-angeles-lakers.png",
-    image2="TeamLogos/los-angeles-lakers.png",
+    image1= getPathToImages("LAL"),
+    image2= getPathToImages("PHI"),
     link="www.google.com")
 
 notification.notify(5)
