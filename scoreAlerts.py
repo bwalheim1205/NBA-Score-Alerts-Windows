@@ -49,6 +49,8 @@ tricodeToName = {
     'WAS':'Washington Wizards'
 }
 
+notifiedGames = []
+
 class ScoreNotification:
 
     #Constructs a new notification
@@ -127,13 +129,21 @@ class ScoreNotification:
 
 def getCurrentNBAGames():
 
-    #getting the proper data
-    page = requests.get("http://data.nba.net/data/10s/prod/v1/" + getNBADayString() +"/scoreboard.json")
-    data = page.json()
+    #Getting the proper data
+    #If connection fails just exits function to prevent error
+    try:
+        page = requests.get("http://data.nba.net/data/10s/prod/v1/" + getNBADayString() +"/scoreboard.json")
+        data = page.json()
+    except:
+        return None
 
+    #For debugging outputs the json file
     #print(json.dumps(data, indent=2))
 
+    #Iterates through every game for the day
     for game in data["games"]:
+
+        gameID = game["gameId"]
 
         homeTeamCode = game["hTeam"]["triCode"]
         homeTeamScore =  game["hTeam"]["score"]
@@ -144,23 +154,36 @@ def getCurrentNBAGames():
         gamePeriod = game["period"]["current"]
         timeInPeriod = game["clock"]
 
-        #print("Q" + str(gamePeriod) + " " + timeInPeriod + ": " + visitTeamCode + "(" + visitTeamScore + ")"  + " @ " +  homeTeamCode + "(" + homeTeamScore + ")")
-
+        #Checks to see if game is active
+        activeGames = False
         if (homeTeamScore != "" and visitTeamScore != ""):
+            activeGames = True
             print("Q" + str(gamePeriod) + " " + timeInPeriod + ": " + visitTeamCode + "(" + visitTeamScore + ")"  + " @ " +  homeTeamCode + "(" + homeTeamScore + ")")
             timeString = "Q" + str(gamePeriod) + " " + timeInPeriod 
+            
+            #Calculates if the game is close
             if (isCloseGame(int(visitTeamScore), int(homeTeamScore), timeInPeriod, gamePeriod)):
                 
-                notification = ScoreNotification(
-                    title="CLOSE GAME ALERT", 
-                    message= visitTeamCode + " vs " + homeTeamCode, 
-                    score1 = homeTeamScore,
-                    score2 = visitTeamScore,
-                    time = timeString,
-                    image1=getPathToImages(visitTeamCode),
-                    image2=getPathToImages(homeTeamCode),
-                    link=getStreamLink(homeTeamCode, visitTeamCode))
-                notification.notify(5)
+                if (gameID not in notifiedGames):
+                    notifiedGames.append(gameID)
+
+                    #Notifies the user about the game
+                    notification = ScoreNotification(
+                        title="CLOSE GAME ALERT", 
+                        message= visitTeamCode + " vs " + homeTeamCode, 
+                        score1 = homeTeamScore,
+                        score2 = visitTeamScore,
+                        time = timeString,
+                        image1=getPathToImages(visitTeamCode),
+                        image2=getPathToImages(homeTeamCode),
+                        link=getStreamLink(homeTeamCode, visitTeamCode))
+                    notification.notify(10)
+
+        #If games are over clears notified games
+        if(not activeGames):
+            notifiedGames = []
+
+            #TO-DO add sleeping until next active game
 
 
 def getPathToImages(teamTriCode):
@@ -205,13 +228,13 @@ def isCloseGame(score1, score2, time, period):
 
 
 
-'''
+
 while True:
     getCurrentNBAGames()
     time.sleep(15)
+
+
 '''
-
-
 notification = ScoreNotification(
     title="CLOSE GAME ALERT", 
     message= "LAL" + " vs " + "PHI", 
@@ -223,3 +246,4 @@ notification = ScoreNotification(
     link="www.google.com")
 
 notification.notify(5)
+'''
