@@ -1,7 +1,26 @@
+'''
+NBA Score Alert Window
+
+Version: 1.0
+Author: Brian Walheim
+
+Description: Tracks NBA scores and creates an alert for close games
+    These alerts can be clicked on to pull up live stream of the game
+
+API Reference:
+
+https://github.com/kashav/nba.js/blob/master/docs/api/DATA.md 
+http://data.nba.net/ 
+- holds nba score board data 
+'''
+
+# Imports
+
 #Handles acccesing of website
 import requests
 import json
 
+#Imports operating system
 import os 
 
 #Handles window creation
@@ -9,13 +28,22 @@ from tkinter import *
 from win32api import GetSystemMetrics
 from PIL import ImageTk, Image
 
+#Handles open the streams
 import webbrowser
 
+#Handles time functions
 from datetime import datetime
 from datetime import timedelta
 import time
 import pytz
 
+#Handles playing arudio
+from playsound import playsound
+
+
+# Local Variables
+
+#Dictionary that maps
 tricodeToName = {
     'ATL':'Atlanta Hawks',
     'BOS':'Boston Celtics',
@@ -50,6 +78,10 @@ tricodeToName = {
 }
 
 notifiedGames = []
+tighterGames = []
+OTGames = []
+
+# Notification Interface
 
 class ScoreNotification:
 
@@ -113,6 +145,9 @@ class ScoreNotification:
         self.messageLabel = Label(self.window, text = self.message, font=("Verdana", 9))
         self.messageLabel.pack()
 
+        #Plays alert notification
+        playsound('alert.wav')
+
         #Creates window
         self.window.mainloop()
 
@@ -126,6 +161,7 @@ class ScoreNotification:
         self.window.destroy()
 
     
+# Functions
 
 def getCurrentNBAGames():
 
@@ -139,6 +175,9 @@ def getCurrentNBAGames():
 
     #For debugging outputs the json file
     #print(json.dumps(data, indent=2))
+
+    #Flag to see if there are no active games
+    activeGames = False
 
     #Iterates through every game for the day
     for game in data["games"]:
@@ -155,16 +194,18 @@ def getCurrentNBAGames():
         timeInPeriod = game["clock"]
 
         #Checks to see if game is active
-        activeGames = False
         if (homeTeamScore != "" and visitTeamScore != ""):
             activeGames = True
             print("Q" + str(gamePeriod) + " " + timeInPeriod + ": " + visitTeamCode + "(" + visitTeamScore + ")"  + " @ " +  homeTeamCode + "(" + homeTeamScore + ")")
             timeString = "Q" + str(gamePeriod) + " " + timeInPeriod 
             
             #Calculates if the game is close
-            if (isCloseGame(int(visitTeamScore), int(homeTeamScore), timeInPeriod, gamePeriod)):
+            if (isCloseGame(int(visitTeamScore), int(homeTeamScore), timeInPeriod, gamePeriod)==1):
                 
+                #Checks to make sure that we have not been notified for game
                 if (gameID not in notifiedGames):
+
+                    #Add game to list of notified game
                     notifiedGames.append(gameID)
 
                     #Notifies the user about the game
@@ -179,13 +220,55 @@ def getCurrentNBAGames():
                         link=getStreamLink(homeTeamCode, visitTeamCode))
                     notification.notify(10)
 
-        #If games are over clears notified games
-        if(not activeGames):
-            notifiedGames = []
+            elif(isCloseGame(int(visitTeamScore), int(homeTeamScore), timeInPeriod, gamePeriod)==2):
+                #Checks to make sure that we have not been notified for game
+                if (gameID not in tighterGames):
 
-            #TO-DO add sleeping until next active game
+                    #Add game to list of notified game
+                    tighterGames.append(gameID)
 
+                    #Notifies the user about the game
+                    notification = ScoreNotification(
+                        title="CLOSER GAME ALERT", 
+                        message= visitTeamCode + " vs " + homeTeamCode, 
+                        score1 = homeTeamScore,
+                        score2 = visitTeamScore,
+                        time = timeString,
+                        image1=getPathToImages(visitTeamCode),
+                        image2=getPathToImages(homeTeamCode),
+                        link=getStreamLink(homeTeamCode, visitTeamCode))
+                    notification.notify(10)
 
+            elif(isCloseGame(int(visitTeamScore), int(homeTeamScore), timeInPeriod, gamePeriod)==3):
+                #Checks to make sure that we have not been notified for game
+                if (gameID not in OTGames):
+
+                    #Add game to list of notified game
+                    OTGames.append(gameID)
+
+                    #Notifies the user about the game
+                    notification = ScoreNotification(
+                        title="OT GAME ALERT", 
+                        message= visitTeamCode + " vs " + homeTeamCode, 
+                        score1 = homeTeamScore,
+                        score2 = visitTeamScore,
+                        time = timeString,
+                        image1=getPathToImages(visitTeamCode),
+                        image2=getPathToImages(homeTeamCode),
+                        link=getStreamLink(homeTeamCode, visitTeamCode))
+                    notification.notify(10)
+
+    #If games are over clears notified games
+    if(not activeGames):
+        notifiedGames = []
+        tighterGames = []
+        OTGames = []
+
+        #Sleeps for 2 hours
+        time.sleep(7200)
+        
+
+#Generates path to images taking the team tricode
 def getPathToImages(teamTriCode):
     
     dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -193,6 +276,10 @@ def getPathToImages(teamTriCode):
     teamName = tricodeToName[teamTriCode].lower().replace(" ","-")
     return pathToImageDirectory + teamName + ".png"
 
+
+#Returns formatted string for the current NBA dayString
+#   NBA day is defined as day of NBA games
+#   Returns: String formatted YYYYMMDD
 def getNBADayString():
 
     tz_NY = pytz.timezone('America/New_York') 
@@ -204,7 +291,8 @@ def getNBADayString():
     return datetime_NY.strftime("%Y%m%d")
 
 
-    
+#Takes in the hTeam and vTeam tricodes and generates
+# the link to the stream    
 def getStreamLink(hTeamCode, vTeamCode):
 
     #home team and the visiting team
@@ -213,6 +301,19 @@ def getStreamLink(hTeamCode, vTeamCode):
     awayTeam = tricodeToName[vTeamCode].lower().replace(" ","-")
     return "http://liveonscore.tv/nba-stream/"+homeTeam+"-vs-"+awayTeam+"/"
 
+
+#Returns int if team is clsoe
+#   Close game is defined as withing 5 minutes
+#   and score diferential of 5 or less
+#
+#   Input: both team scores
+#          time left in the quarter
+#          period is quarter of the game
+#
+#   Returns: 0 - if not close
+#            1 - if close within 5 minutes
+#            2 - if close within 2 minutes
+#            3 - if close within overtime
 def isCloseGame(score1, score2, time, period):
 
     scoreDifferential = abs(score1-score2)
@@ -221,14 +322,26 @@ def isCloseGame(score1, score2, time, period):
     if(":" in time):
         minutes = int(time.split(":")[0])
 
-    if(scoreDifferential <= 5 and period == 4 and (":" not in time or minutes<=5) and time != ""):
-        return True
+    #Checks for close game within OT
+    if(scoreDifferential <= 5 and period > 4):
+        return 3
 
-    return False
+    #Checks for the close game within 2 minutes
+    if(scoreDifferential <= 5 and period == 4 and (":" not in time or minutes<=2) and time != ""):
+        return 2
+
+    #Checks for theclose game within 5 minutes
+    elif(scoreDifferential <= 5 and period == 4 and (":" not in time or minutes<=5) and time != ""):
+        return 1
+    
+    #Returns 0 if not close
+    return 0
 
 
+# Main
 
 
+#Main loop checks scores every 15 seconds
 while True:
     getCurrentNBAGames()
     time.sleep(15)
