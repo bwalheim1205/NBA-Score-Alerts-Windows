@@ -146,7 +146,8 @@ class ScoreNotification:
         self.messageLabel.pack()
 
         #Plays alert notification
-        playsound('alert.wav')
+        path = (os.path.dirname(os.path.abspath(__file__)))
+        playsound(path + '\\alert.wav')
 
         #Creates window
         self.window.mainloop()
@@ -299,7 +300,7 @@ def getStreamLink(hTeamCode, vTeamCode):
     #http://liveonscore.tv/nba-stream/home-team-vs-away-team/
     homeTeam = tricodeToName[hTeamCode].lower().replace(" ","-")
     awayTeam = tricodeToName[vTeamCode].lower().replace(" ","-")
-    return "http://liveonscore.tv/nba-stream/"+homeTeam+"-vs-"+awayTeam+"/"
+    return "http://weakstreams.com/nba-stream/"+homeTeam+"-vs-"+awayTeam+"/"
 
 
 #Returns int if team is clsoe
